@@ -244,7 +244,7 @@ router.post('/google', async (req, res) => {
 
         if (!user) {
             const id = generateId();
-            const userRole = 'admin';
+            const userRole = 'employee'; // New Google sign-ups default to employee
             await db.query(
                 'INSERT INTO users (id, name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5)',
                 [id, name, email, null, userRole]
