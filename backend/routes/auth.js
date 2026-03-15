@@ -122,31 +122,51 @@ router.get('/verify-email/:token', async (req, res) => {
             return res.redirect(`${frontendUrl}/email-verified?success=false&reason=expired`);
         }
 
-        // Check again if user was created while token was pending
-        const existingUser = await db.query('SELECT id FROM users WHERE email = $1', [pending.email]);
+        // Check if user already verified and exists
+        let user;
+        const existingUser = await db.query('SELECT * FROM users WHERE email = $1', [pending.email]);
         if (existingUser.rows.length > 0) {
             await db.query('DELETE FROM pending_users WHERE id = $1', [pending.id]);
-            return res.redirect(`${frontendUrl}/email-verified?success=true&reason=already_verified`);
+            user = existingUser.rows[0];
+        } else {
+            // Create the verified user
+            const newId = generateId();
+            await db.query(
+                `INSERT INTO users (id, name, email, password_hash, role, phone_number, date_of_birth, is_active)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, 1)`,
+                [newId, pending.name, pending.email, pending.password_hash, pending.role, pending.phone_number, pending.date_of_birth]
+            );
+            // Remove from pending
+            await db.query('DELETE FROM pending_users WHERE id = $1', [pending.id]);
+            const newUserRes = await db.query('SELECT * FROM users WHERE id = $1', [newId]);
+            user = newUserRes.rows[0];
         }
 
-        // Create the verified user
-        const newId = generateId();
-        await db.query(
-            `INSERT INTO users (id, name, email, password_hash, role, phone_number, date_of_birth, is_active)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 1)`,
-            [newId, pending.name, pending.email, pending.password_hash, pending.role, pending.phone_number, pending.date_of_birth]
+        // Generate JWT for auto-login
+        const jwtToken = jwt.sign(
+            { id: user.id, role: user.role },
+            JWT_SECRET,
+            { expiresIn: '7d' }
         );
 
-        // Remove from pending
-        await db.query('DELETE FROM pending_users WHERE id = $1', [pending.id]);
+        const userPayload = encodeURIComponent(JSON.stringify({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            phone_number: user.phone_number || null,
+            date_of_birth: user.date_of_birth || null,
+        }));
 
-        return res.redirect(`${frontendUrl}/email-verified?success=true`);
+        // Redirect to frontend with token — frontend will store and navigate to dashboard
+        return res.redirect(`${frontendUrl}/email-verified?success=true&token=${jwtToken}&user=${userPayload}`);
 
     } catch (error) {
         console.error('Email Verify Error:', error.message);
         return res.redirect(`${frontendUrl}/email-verified?success=false&reason=error`);
     }
 });
+
 
 // ─────────────────────────────────────────────
 // POST /api/auth/login
