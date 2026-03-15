@@ -41,6 +41,13 @@ router.post('/register', async (req, res) => {
         return res.status(400).json({ message: 'Invalid role. Must be employee, manager, or admin.' });
     }
 
+    // Check email is configured on the server
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        return res.status(500).json({ 
+            message: 'Email service is not configured on the server. Please contact the administrator to set up EMAIL_USER and EMAIL_PASS environment variables.' 
+        });
+    }
+
     try {
         // Check if already a verified user
         const existingUser = await db.query('SELECT id FROM users WHERE email = $1', [email]);
@@ -48,21 +55,16 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ message: 'An account with this email already exists.' });
         }
 
-        // Check if a pending verification already exists
-        const existingPending = await db.query('SELECT id FROM pending_users WHERE email = $1', [email]);
-        if (existingPending.rows.length > 0) {
-            // Remove old pending row so they can re-register
-            await db.query('DELETE FROM pending_users WHERE email = $1', [email]);
-        }
+        // Check if a pending verification already exists — remove so they can re-register
+        await db.query('DELETE FROM pending_users WHERE email = $1', [email]);
 
         // Hash password
         const salt = await bcrypt.genSalt(10);
         const password_hash = await bcrypt.hash(password, salt);
 
-        // Generate verification token
+        // Generate verification token (24 hours)
         const verificationToken = crypto.randomBytes(32).toString('hex');
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
         const id = generateId();
 
         await db.query(
@@ -71,28 +73,38 @@ router.post('/register', async (req, res) => {
             [id, name, email, password_hash, role, phone_number || null, date_of_birth || null, verificationToken, expiresAt]
         );
 
-        // Build verification URL
+        // Build verification URL using BACKEND_URL env var
         const backendUrl = process.env.BACKEND_URL || `http://localhost:5000`;
         const verifyUrl = `${backendUrl}/api/auth/verify-email/${verificationToken}`;
 
-        // Send email
-        const transporter = createTransporter();
-        await transporter.sendMail({
-            from: `"Office Activity Tracker" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: 'Verify your Office Activity Tracker account',
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto; padding: 32px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc;">
-                    <h2 style="color: #1e293b; margin-bottom: 8px;">Verify your email</h2>
-                    <p style="color: #475569; margin-bottom: 24px;">Hi <b>${name}</b>, click the button below to activate your account.</p>
-                    <a href="${verifyUrl}" style="display: inline-block; background: #6366f1; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">
-                        Verify Email Address
-                    </a>
-                    <p style="color: #94a3b8; font-size: 12px; margin-top: 24px;">This link expires in 24 hours. If you didn't sign up, please ignore this email.</p>
-                    <p style="color: #94a3b8; font-size: 11px;">Or copy this URL: <a href="${verifyUrl}" style="color: #6366f1;">${verifyUrl}</a></p>
-                </div>
-            `,
-        });
+        // Send verification email
+        try {
+            const transporter = createTransporter();
+            await transporter.sendMail({
+                from: `"Office Activity Tracker" <${process.env.EMAIL_USER}>`,
+                to: email,
+                subject: 'Verify your Office Activity Tracker account',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto; padding: 32px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc;">
+                        <h2 style="color: #1e293b; margin-bottom: 8px;">Verify your email</h2>
+                        <p style="color: #475569; margin-bottom: 24px;">Hi <b>${name}</b>, click the button below to activate your account.</p>
+                        <a href="${verifyUrl}" style="display: inline-block; background: #6366f1; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">
+                            Verify Email Address
+                        </a>
+                        <p style="color: #94a3b8; font-size: 12px; margin-top: 24px;">This link expires in 24 hours. If you didn't sign up, please ignore this email.</p>
+                        <p style="color: #94a3b8; font-size: 11px;">Or copy this URL: <a href="${verifyUrl}" style="color: #6366f1;">${verifyUrl}</a></p>
+                    </div>
+                `,
+            });
+        } catch (emailError) {
+            // If email fails, clean up the pending user and return a clear error
+            console.error('Email send failed:', emailError.message);
+            await db.query('DELETE FROM pending_users WHERE id = $1', [id]);
+            return res.status(500).json({ 
+                message: 'Could not send verification email. Please check the server email configuration (EMAIL_USER / EMAIL_PASS).',
+                details: emailError.message
+            });
+        }
 
         res.json({ message: 'Verification email sent. Please check your inbox.' });
 
