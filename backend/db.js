@@ -30,13 +30,16 @@ const initDb = async () => {
         org_id VARCHAR(255) REFERENCES organizations(id),
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
+        password_hash VARCHAR(255),
         role VARCHAR(50) CHECK (role IN ('employee', 'manager', 'admin')),
         department VARCHAR(255),
         is_active INTEGER DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Ensure password_hash is nullable if the table already existed with NOT NULL constraint
+    await pool.query(`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`).catch(e => console.log('Notice: password_hash already nullable or column missing.'));
 
     // Devices
     await pool.query(`

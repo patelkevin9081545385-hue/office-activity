@@ -2,7 +2,12 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 const db = require('../db');
+
+// Initialize Google Auth Client with placeholder or real client ID from Vercel
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 
 // Helper for generating UUID-like strings without the uuid package
 const generateId = () => {
@@ -106,6 +111,67 @@ router.post('/login', async (req, res) => {
     } catch (error) {
         console.error(error.message);
         res.status(500).send('Server Error');
+    }
+});
+
+// Google Sign-In / Sign-Up
+router.post('/google', async (req, res) => {
+    const { token } = req.body;
+
+    if (!token) {
+        return res.status(400).json({ message: 'No Google token provided' });
+    }
+
+    try {
+        // Verify the token with Google
+        const ticket = await client.verifyIdToken({
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        
+        const { sub: googleId, email, name } = payload;
+
+        // Check if user already exists
+        const userRes = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        let user = userRes.rows[0];
+
+        if (!user) {
+            // Register new user automatically
+            const id = generateId();
+            // Default new Google users to admin for testing, or employee in production
+            const userRole = 'admin'; 
+            
+            await db.query('INSERT INTO users (id, name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5)', [id, name, email, null, userRole]);
+            
+            const newUserRes = await db.query('SELECT id, name, email, role FROM users WHERE id = $1', [id]);
+            user = newUserRes.rows[0];
+        }
+
+        // Generate our JWT token
+        const userResponse = {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role
+        };
+
+        jwt.sign(
+            { id: user.id, role: user.role },
+            JWT_SECRET,
+            { expiresIn: '7d' },
+            (err, jwtToken) => {
+                if (err) throw err;
+                res.json({
+                    token: jwtToken,
+                    user: userResponse
+                });
+            }
+        );
+
+    } catch (error) {
+        console.error('Google Auth Error:', error.message);
+        res.status(401).json({ message: 'Invalid Google Token' });
     }
 });
 
