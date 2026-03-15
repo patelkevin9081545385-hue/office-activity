@@ -33,6 +33,8 @@ const initDb = async () => {
         password_hash VARCHAR(255),
         role VARCHAR(50) CHECK (role IN ('employee', 'manager', 'admin')),
         department VARCHAR(255),
+        phone_number VARCHAR(20),
+        date_of_birth DATE,
         is_active INTEGER DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -40,6 +42,26 @@ const initDb = async () => {
 
     // Ensure password_hash is nullable if the table already existed with NOT NULL constraint
     await pool.query(`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`).catch(e => console.log('Notice: password_hash already nullable or column missing.'));
+
+    // Safe migrations for new columns (idempotent)
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number VARCHAR(20)`).catch(() => {});
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE`).catch(() => {});
+
+    // Pending Users (for email verification)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS pending_users (
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(50) DEFAULT 'employee',
+        phone_number VARCHAR(20),
+        date_of_birth DATE,
+        verification_token VARCHAR(255) UNIQUE NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     // Devices
     await pool.query(`

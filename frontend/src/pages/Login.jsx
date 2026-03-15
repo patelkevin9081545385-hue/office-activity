@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Activity, Lock, Mail, ChevronRight } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
@@ -144,6 +144,12 @@ export default function Login() {
 
           <div className="mt-6 text-center text-xs text-slate-500">
             <p>For demo: Use <span className="text-primary-400">admin@tracker.com</span> / <span className="text-primary-400">admin</span></p>
+          </div>
+          <div className="mt-4 text-center text-sm text-slate-500">
+            Don't have an account?{' '}
+            <Link to="/signup" className="text-primary-400 hover:text-primary-300 font-medium transition-colors">
+              Sign Up
+            </Link>
           </div>
         </div>
       </div>

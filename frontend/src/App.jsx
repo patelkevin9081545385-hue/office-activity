@@ -1,5 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
+import EmailVerificationPending from './pages/EmailVerificationPending';
+import EmailVerified from './pages/EmailVerified';
 import DashboardLayout from './components/DashboardLayout';
 import Overview from './pages/Overview';
 import Team from './pages/Team';
@@ -12,13 +15,18 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route 
-          path="/login" 
-          element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" />} 
+        {/* Public routes */}
+        <Route
+          path="/login"
+          element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" />}
         />
-        
-        <Route 
-          path="/dashboard" 
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/verify-email-pending" element={<EmailVerificationPending />} />
+        <Route path="/email-verified" element={<EmailVerified />} />
+
+        {/* Protected dashboard routes */}
+        <Route
+          path="/dashboard"
           element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" />}
         >
           <Route index element={<Overview />} />
@@ -33,3 +41,4 @@ function App() {
 }
 
 export default App;
+
