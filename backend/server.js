@@ -28,6 +28,7 @@ try {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/agent', require('./routes/agent'));
+app.use('/api/download', require('./routes/download'));
 
 // Basic root route
 app.get('/', (req, res) => {

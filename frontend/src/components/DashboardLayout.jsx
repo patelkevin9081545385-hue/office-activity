@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { googleLogout } from '@react-oauth/google';
-import { LayoutDashboard, Users, Activity, Settings, LogOut, Search, Bell } from 'lucide-react';
+import { LayoutDashboard, Users, Activity, Settings, LogOut, Search, Bell, Download } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function DashboardLayout() {
@@ -99,6 +99,13 @@ export default function DashboardLayout() {
           </div>
           
           <div className="ml-4 flex items-center gap-4">
+            <a 
+              href={`${API}/api/download/${user.id}`}
+              className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg shadow-lg shadow-primary-500/20 transition-all active:scale-95"
+            >
+              <Download className="h-4 w-4" />
+              Download Tracker
+            </a>
             <button className="relative p-2 text-slate-400 hover:text-slate-200 transition-colors rounded-lg hover:bg-slate-800">
               <Bell className="h-5 w-5" />
               <span className="absolute top-1.5 right-1.5 block h-2 w-2 rounded-full bg-primary-500 shadow-sm shadow-primary-500"></span>
