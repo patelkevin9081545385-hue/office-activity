@@ -1,4 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { googleLogout } from '@react-oauth/google';
 import { LayoutDashboard, Users, Activity, Settings, LogOut, Search, Bell } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -8,9 +9,10 @@ export default function DashboardLayout() {
   const user = JSON.parse(localStorage.getItem('user') || '{"name": "Guest"}');
 
   const handleLogout = () => {
+    googleLogout(); // Clear google session
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    navigate('/login');
+    window.location.href = '/login'; // Use window.location to strictly hard-reload the app state
   };
 
   const navItems = [
