@@ -40,7 +40,7 @@ export default function Signup() {
 
     setLoading(true);
     try {
-      await axios.post(`${API}/api/auth/register`, {
+      const res = await axios.post(`${API}/api/auth/register`, {
         name: form.name,
         email: form.email,
         password: form.password,
@@ -48,7 +48,16 @@ export default function Signup() {
         phone_number: form.phone_number,
         date_of_birth: form.date_of_birth,
       });
-      navigate('/verify-email-pending', { state: { email: form.email } });
+
+      if (res.data.verified && res.data.token) {
+        // Direct registration — auto-login
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
+        window.location.href = '/dashboard';
+      } else {
+        // Email verification required
+        navigate('/verify-email-pending', { state: { email: form.email } });
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Sign up failed. Please try again.');
     } finally {
