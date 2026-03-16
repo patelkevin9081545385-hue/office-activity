@@ -5,8 +5,16 @@ import clsx from 'clsx';
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
-  // Get user from local storage
-  const user = JSON.parse(localStorage.getItem('user') || '{"name": "Guest"}');
+  let user = { name: "Guest", id: "", role: "Admin" };
+  try {
+    const stored = localStorage.getItem('user');
+    if (stored && stored !== "undefined" && stored !== "null") {
+      user = JSON.parse(stored) || user;
+    }
+  } catch (e) {
+    console.error("Failed to parse user from local storage");
+  }
+  const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
   const handleLogout = () => {
     googleLogout(); // Clear google session
@@ -63,11 +71,11 @@ export default function DashboardLayout() {
         <div className="p-4 border-t border-slate-800">
           <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-slate-800/50 mb-4 border border-slate-700/50">
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary-500 to-indigo-500 flex items-center justify-center text-white font-bold shadow-md">
-              {user.name.charAt(0).toUpperCase()}
+              {user?.name ? user.name.charAt(0).toUpperCase() : 'G'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{user.name}</p>
-              <p className="text-xs text-slate-400 truncate capitalize">{user.role || 'Admin'}</p>
+              <p className="text-sm font-medium text-white truncate">{user?.name || 'Guest'}</p>
+              <p className="text-xs text-slate-400 truncate capitalize">{user?.role || 'Admin'}</p>
             </div>
           </div>
           
@@ -100,7 +108,7 @@ export default function DashboardLayout() {
           
           <div className="ml-4 flex items-center gap-4">
             <a 
-              href={`${API}/api/download/${user.id}`}
+              href={`${API}/api/download/${user?.id || ''}`}
               className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg shadow-lg shadow-primary-500/20 transition-all active:scale-95"
             >
               <Download className="h-4 w-4" />
